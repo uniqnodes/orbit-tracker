@@ -1,0 +1,13 @@
+"use client";
+
+import { useState } from "react";
+import type { PlannedImprovement } from "@/lib/tracking/schema";
+
+type Option = { id: string; title?: string; name?: string };
+type Props = { project: string; branch: string; expectedBranchCommit: string; record: PlannedImprovement; catalog: { services: Option[]; components: Option[]; areas: Option[] }; relationships: { proposals: Option[]; developmentLogs: Option[]; legacyCleanup: Option[] } };
+
+export function EditPlannedImprovementForm({ project, branch, expectedBranchCommit, record, catalog, relationships }: Props) {
+  const [title, setTitle] = useState(record.title); const [summary, setSummary] = useState(record.summary); const [goal, setGoal] = useState(record.goal); const [priority, setPriority] = useState(record.priority); const [status, setStatus] = useState(record.status); const [message, setMessage] = useState<string>();
+  async function submit(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); const response = await fetch("/api/tracking/planned-improvements", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ project, branch, expectedBranchCommit, record: { id: record.id, title, summary, goal, priority, status, categories: record.categories, scope: record.scope, relationships: record.relationships } }) }); const result = await response.json() as { error?: string }; if (!response.ok) { setMessage(result.error ?? "Tracking update failed."); return; } window.location.reload(); }
+  return <details><summary>{record.id} — {record.title}</summary><form onSubmit={submit} className="tracking-form"><label>Title<input required value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>Summary<textarea required value={summary} onChange={(event) => setSummary(event.target.value)} /></label><label>Goal<textarea required value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Priority<select value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>{["backlog", "in_progress", "blocked", "completed"].map((item) => <option key={item} value={item}>{item}</option>)}</select></label><p>Scope: {record.scope.services.join(", ") || "none"}</p><p>Relations: {relationships.proposals.length} proposals available; {catalog.services.length} services available.</p><button type="submit">Save planned improvement</button>{message ? <p role="status">{message}</p> : null}</form></details>;
+}
