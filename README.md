@@ -93,6 +93,12 @@ docker build -t orbit-tracker .
 docker run --rm -p 3000:3000 --env-file /secure/orbit.env orbit-tracker
 ```
 
+`/secure/orbit.env` must use Docker environment-file format: store values as
+unquoted `NAME=value` lines. Do not pass the quoted dotenv file produced by
+`vercel env pull` directly to Docker; Docker treats those quotes as literal
+characters. Each deployment needs its own `ORBIT_APP_URL` and matching provider
+callback registrations.
+
 Run immutable database migrations as a separate, one-off step against the same
 `DATABASE_URL`, before replacing a running web container:
 
