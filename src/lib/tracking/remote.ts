@@ -2,7 +2,7 @@ import { parse } from "yaml";
 import { trackingPath, type AllowedProject } from "@/adapters/config/provider-config";
 import { providerFor } from "@/adapters/scm/provider-registry";
 import type { BranchReference } from "@/core/ports/scm-provider";
-import { updatePlannedImprovementStatus } from "./planned-improvement-status";
+import { updatePlannedImprovementStatus, upsertPlannedImprovement } from "./planned-improvement-status";
 import { developmentLogDocumentSchema, legacyCleanupDocumentSchema, plannedImprovementDocumentSchema, proposedImprovementDocumentSchema } from "./schema";
 
 const requiredSources = ["plannedImprovements", "developmentLog", "proposedImprovements", "legacyCleanup"] as const;
@@ -55,6 +55,19 @@ export async function savePlannedImprovementStatus(input: {
     content,
     expectedBranchCommit: input.expectedBranchCommit,
     message: `docs(tracking): update ${input.recordId} status`,
+  });
+}
+
+export async function savePlannedImprovement(input: {
+  project: AllowedProject; accessToken: string; branch: string; expectedBranchCommit: string;
+  record: Parameters<typeof upsertPlannedImprovement>[1];
+}) {
+  const { snapshot } = await loadTrackingSnapshot({ project: input.project, accessToken: input.accessToken, branchName: input.branch });
+  if (snapshot.branch.commit !== input.expectedBranchCommit) throw new Error("The selected branch changed after it was loaded. Reload before saving.");
+  const content = upsertPlannedImprovement(snapshot.sources.plannedImprovements, input.record);
+  return providerFor(input.project.provider).writeFile(input.accessToken, {
+    project: input.project.slug, branch: input.branch, path: `${trackingPath()}/${snapshot.manifest.tracking.sources.plannedImprovements}`,
+    content, expectedBranchCommit: input.expectedBranchCommit, message: `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add planned improvement"}`,
   });
 }
 
