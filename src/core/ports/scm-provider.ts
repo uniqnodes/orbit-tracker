@@ -14,7 +14,16 @@ export type ProviderToken = {
   expiresAt?: string;
 };
 
-export type BranchReference = { name: string; commit: string };
+export type BranchReference = { name: string; commit: string; canPush?: boolean };
+
+export type WriteFileInput = {
+  project: string;
+  branch: string;
+  path: string;
+  content: string;
+  expectedBranchCommit: string;
+  message: string;
+};
 
 export interface ScmProvider {
   readonly id: ProviderId;
@@ -26,4 +35,5 @@ export interface ScmProvider {
   getConnectedAccount(accessToken: string): Promise<ConnectedAccount>;
   listBranches(accessToken: string, project: string): Promise<BranchReference[]>;
   readFile(accessToken: string, project: string, branch: string, path: string): Promise<string>;
+  writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference>;
 }

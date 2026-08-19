@@ -1,7 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import { callbackUrl, gitlabBaseUrl, providerCredentials } from "@/adapters/config/provider-config";
-import type { ConnectedAccount } from "@/core/domain/provider";
-import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
+import { BranchChangedError, type ConnectedAccount } from "@/core/domain/provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput } from "@/core/ports/scm-provider";
 
 function base64url(value: Buffer) {
   return value.toString("base64url");
@@ -65,9 +65,9 @@ export class GitLabProvider implements ScmProvider {
 
   async listBranches(accessToken: string, project: string): Promise<BranchReference[]> {
     const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(project)}/repository/branches?per_page=100`, { headers: this.headers(accessToken), cache: "no-store" });
-    const payload = (await response.json()) as Array<{ name?: string; commit?: { id?: string } }>;
+    const payload = (await response.json()) as Array<{ name?: string; commit?: { id?: string }; can_push?: boolean }>;
     if (!response.ok) throw new Error("GitLab branches could not be loaded.");
-    return payload.flatMap((branch) => branch.name && branch.commit?.id ? [{ name: branch.name, commit: branch.commit.id }] : []);
+    return payload.flatMap((branch) => branch.name && branch.commit?.id ? [{ name: branch.name, commit: branch.commit.id, canPush: branch.can_push }] : []);
   }
 
   async readFile(accessToken: string, project: string, branch: string, path: string) {
@@ -76,6 +76,29 @@ export class GitLabProvider implements ScmProvider {
     const response = await fetch(url, { headers: this.headers(accessToken), cache: "no-store" });
     if (!response.ok) throw new Error(`GitLab file could not be loaded: ${path}`);
     return response.text();
+  }
+
+  async writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference> {
+    const branch = await this.branch(accessToken, input.project, input.branch);
+    if (branch.commit !== input.expectedBranchCommit) throw new BranchChangedError();
+    if (!branch.canPush) throw new Error("GitLab does not allow this user to write to the selected branch.");
+    const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(input.project)}/repository/files/${encodeURIComponent(input.path)}`, {
+      method: "PUT",
+      headers: { ...this.headers(accessToken), "content-type": "application/json" },
+      body: JSON.stringify({ branch: input.branch, content: input.content, commit_message: input.message, last_commit_id: input.expectedBranchCommit }),
+      cache: "no-store",
+    });
+    if (response.status === 400 || response.status === 409) throw new BranchChangedError();
+    const payload = (await response.json()) as { commit_id?: string };
+    if (!response.ok || !payload.commit_id) throw new Error("GitLab could not create the tracking update commit.");
+    return { name: input.branch, commit: payload.commit_id, canPush: true };
+  }
+
+  private async branch(accessToken: string, project: string, branchName: string): Promise<BranchReference> {
+    const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(project)}/repository/branches/${encodeURIComponent(branchName)}`, { headers: this.headers(accessToken), cache: "no-store" });
+    const payload = (await response.json()) as { name?: string; commit?: { id?: string }; can_push?: boolean };
+    if (!response.ok || !payload.name || !payload.commit?.id) throw new Error("GitLab branch could not be reloaded before saving.");
+    return { name: payload.name, commit: payload.commit.id, canPush: payload.can_push };
   }
 
   private headers(accessToken: string) {

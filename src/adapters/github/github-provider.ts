@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { callbackUrl, providerCredentials } from "@/adapters/config/provider-config";
-import type { ConnectedAccount } from "@/core/domain/provider";
-import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
+import { BranchChangedError, type ConnectedAccount } from "@/core/domain/provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput } from "@/core/ports/scm-provider";
 
 const githubUrl = "https://github.com";
 const githubApiUrl = "https://api.github.com";
@@ -69,6 +69,31 @@ export class GitHubProvider implements ScmProvider {
     const payload = (await response.json()) as { content?: string; encoding?: string };
     if (!response.ok || payload.encoding !== "base64" || !payload.content) throw new Error(`GitHub file could not be loaded: ${path}`);
     return Buffer.from(payload.content, "base64").toString("utf8");
+  }
+
+  async writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference> {
+    const branch = await this.branch(accessToken, input.project, input.branch);
+    if (branch.commit !== input.expectedBranchCommit) throw new BranchChangedError();
+    const currentFile = await fetch(`${githubApiUrl}/repos/${input.project}/contents/${input.path}?ref=${encodeURIComponent(input.branch)}`, { headers: this.headers(accessToken), cache: "no-store" });
+    const filePayload = (await currentFile.json()) as { sha?: string };
+    if (!currentFile.ok || !filePayload.sha) throw new Error(`GitHub file could not be prepared for update: ${input.path}`);
+    const response = await fetch(`${githubApiUrl}/repos/${input.project}/contents/${input.path}`, {
+      method: "PUT",
+      headers: { ...this.headers(accessToken), "content-type": "application/json" },
+      body: JSON.stringify({ message: input.message, content: Buffer.from(input.content).toString("base64"), branch: input.branch, sha: filePayload.sha }),
+      cache: "no-store",
+    });
+    if (response.status === 409) throw new BranchChangedError();
+    const payload = (await response.json()) as { commit?: { sha?: string } };
+    if (!response.ok || !payload.commit?.sha) throw new Error("GitHub could not create the tracking update commit.");
+    return { name: input.branch, commit: payload.commit.sha };
+  }
+
+  private async branch(accessToken: string, project: string, branchName: string): Promise<BranchReference> {
+    const response = await fetch(`${githubApiUrl}/repos/${project}/branches/${encodeURIComponent(branchName)}`, { headers: this.headers(accessToken), cache: "no-store" });
+    const payload = (await response.json()) as { name?: string; commit?: { sha?: string } };
+    if (!response.ok || !payload.name || !payload.commit?.sha) throw new Error("GitHub branch could not be reloaded before saving.");
+    return { name: payload.name, commit: payload.commit.sha };
   }
 
   private headers(accessToken: string) {

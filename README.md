@@ -17,8 +17,9 @@ npm run dev
 
 The first slice includes a public-safe demo fixture and provider connection
 proof of concept. It can authenticate a GitLab OAuth user or a GitHub App
-user-to-server flow and fetch the authenticated profile. It does **not** yet
-list repositories, read tracking YAML from a remote branch, or create commits.
+user-to-server flow, fetch the authenticated profile, and read tracking YAML
+from an allowlisted remote branch. It can update a Planned Improvement status
+through a single provider commit, guarded by a branch-head conflict check.
 
 ## Local provider setup
 

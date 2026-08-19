@@ -16,3 +16,9 @@ export function isProviderId(value: string): value is ProviderId {
 export function providerLabel(provider: ProviderId) {
   return provider === "gitlab" ? "GitLab" : "GitHub";
 }
+
+export class BranchChangedError extends Error {
+  constructor() {
+    super("The selected branch changed after it was loaded. Reload before saving.");
+  }
+}
