@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { parse } from "yaml";
 import { allowedProjects } from "@/adapters/config/provider-config";
 import { sessionStore } from "@/adapters/session/session-store";
@@ -20,22 +21,29 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
   const query = await searchParams;
   const project = allowedProjects().find((item) => item.provider === session.account.provider && item.slug === query.project) ?? allowedProjects().find((item) => item.provider === session.account.provider);
   if (!project) return <main><h1>No allowed project</h1></main>;
-  const { snapshot } = await loadTrackingSnapshot({ project, accessToken: session.token.accessToken, branchName: query.branch });
+  const { branches, snapshot } = await loadTrackingSnapshot({ project, accessToken: session.token.accessToken, branchName: query.branch });
   const workspace = buildTrackingWorkspace(snapshot);
   const planned = plannedImprovementDocumentSchema.parse(parse(snapshot.sources.plannedImprovements));
   const proposals = proposedImprovementDocumentSchema.parse(parse(snapshot.sources.proposedImprovements));
   const developmentLogs = developmentLogDocumentSchema.parse(parse(snapshot.sources.developmentLog));
   const legacyCleanup = legacyCleanupDocumentSchema.parse(parse(snapshot.sources.legacyCleanup));
   const context = { project: project.slug, branch: snapshot.branch.name, expectedBranchCommit: snapshot.branch.commit };
+  const canWrite = snapshot.branch.canPush !== false;
   return <main>
     <h1>{snapshot.manifest.project.name}</h1>
-    <section><h2>New planned improvement</h2><NewPlannedImprovementForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>
-    <section><h2>New development log</h2><NewDevelopmentLogForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>
-    <section><h2>New proposal</h2><NewProposalForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>
-    <section><h2>New legacy cleanup</h2><NewLegacyCleanupForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>
-    <section><h2>Development log</h2><ul>{developmentLogs.records.map((record) => <li key={record.id}><EditDevelopmentLogForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /></li>)}</ul></section>
-    <section><h2>Proposals</h2><ul>{proposals.records.map((record) => <li key={record.id}><EditProposalForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /></li>)}</ul></section>
-    <section><h2>Legacy cleanup</h2><ul>{legacyCleanup.records.map((record) => <li key={record.id}><EditLegacyCleanupForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /></li>)}</ul></section>
-    <section><h2>Planned improvements</h2>{planned.records.map((record) => <EditPlannedImprovementForm key={record.id} {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} />)}</section>
+    <section>
+      <h2>Branch</h2>
+      <p>Every change on this page is committed to the selected branch.</p>
+      <nav aria-label="Tracking branches">{branches.map((branch) => <Link key={branch.name} className={branch.name === snapshot.branch.name ? "button" : "secondary button"} href={`/tracking?project=${encodeURIComponent(project.slug)}&branch=${encodeURIComponent(branch.name)}`}>{branch.name}{branch.canPush === false ? " (read-only)" : ""}</Link>)}</nav>
+    </section>
+    {!canWrite && <p className="notice">GitLab reports that this branch is read-only for the connected account.</p>}
+    {canWrite && <section><h2>New planned improvement</h2><NewPlannedImprovementForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>}
+    {canWrite && <section><h2>New development log</h2><NewDevelopmentLogForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>}
+    {canWrite && <section><h2>New proposal</h2><NewProposalForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>}
+    {canWrite && <section><h2>New legacy cleanup</h2><NewLegacyCleanupForm {...context} catalog={workspace.catalog} relationships={workspace.relationships} /></section>}
+    <section><h2>Development log</h2><ul>{developmentLogs.records.map((record) => <li key={record.id}>{canWrite ? <EditDevelopmentLogForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /> : `${record.id} — ${record.title}`}</li>)}</ul></section>
+    <section><h2>Proposals</h2><ul>{proposals.records.map((record) => <li key={record.id}>{canWrite ? <EditProposalForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /> : `${record.id} — ${record.title}`}</li>)}</ul></section>
+    <section><h2>Legacy cleanup</h2><ul>{legacyCleanup.records.map((record) => <li key={record.id}>{canWrite ? <EditLegacyCleanupForm {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /> : `${record.id} — ${record.title}`}</li>)}</ul></section>
+    <section><h2>Planned improvements</h2>{planned.records.map((record) => canWrite ? <EditPlannedImprovementForm key={record.id} {...context} record={record} catalog={workspace.catalog} relationships={workspace.relationships} /> : <p key={record.id}>{record.id} — {record.title}</p>)}</section>
   </main>;
 }
