@@ -79,6 +79,27 @@ For a Vercel deployment, provision a PostgreSQL integration such as Neon, let
 it set `DATABASE_URL`, then run the migration against that connection before
 adding provider credentials and production callback URLs.
 
+## Docker deployment
+
+The Docker image runs the Next.js standalone server. Supply the same production
+environment contract (`ORBIT_APP_URL`, both provider credentials,
+`ORBIT_SESSION_SECRET`, `ORBIT_TOKEN_ENCRYPTION_SECRET`, and `DATABASE_URL`) at
+runtime; do not copy an environment file into the image.
+
+Build and start the web server:
+
+```bash
+docker build -t orbit-tracker .
+docker run --rm -p 3000:3000 --env-file /secure/orbit.env orbit-tracker
+```
+
+Run immutable database migrations as a separate, one-off step against the same
+`DATABASE_URL`, before replacing a running web container:
+
+```bash
+docker run --rm --env-file /secure/orbit.env orbit-tracker node db/migrate.mjs
+```
+
 ## Core boundaries
 
 - The browser never receives a provider token through page data or browser
