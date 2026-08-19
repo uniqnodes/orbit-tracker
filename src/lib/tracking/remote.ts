@@ -5,6 +5,7 @@ import type { BranchReference } from "@/core/ports/scm-provider";
 import { updatePlannedImprovementStatus, upsertPlannedImprovement } from "./planned-improvement-status";
 import { upsertDevelopmentLog } from "./development-log";
 import { upsertProposal } from "./proposal";
+import { upsertLegacyCleanup } from "./legacy-cleanup";
 import { developmentLogDocumentSchema, legacyCleanupDocumentSchema, plannedImprovementDocumentSchema, proposedImprovementDocumentSchema } from "./schema";
 
 const requiredSources = ["plannedImprovements", "developmentLog", "proposedImprovements", "legacyCleanup"] as const;
@@ -80,6 +81,7 @@ export async function saveDevelopmentLog(input: { project: AllowedProject; acces
   return providerFor(input.project.provider).writeFile(input.accessToken, { project: input.project.slug, branch: input.branch, path: `${trackingPath()}/${snapshot.manifest.tracking.sources.developmentLog}`, content, expectedBranchCommit: input.expectedBranchCommit, message: `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add development log"}` });
 }
 export async function saveProposal(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertProposal>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");return providerFor(input.project.provider).writeFile(input.accessToken,{project:input.project.slug,branch:input.branch,path:`${trackingPath()}/${snapshot.manifest.tracking.sources.proposedImprovements}`,content:upsertProposal(snapshot.sources.proposedImprovements,input.record),expectedBranchCommit:input.expectedBranchCommit,message:`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add proposal"}`})}
+export async function saveLegacyCleanup(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertLegacyCleanup>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");return providerFor(input.project.provider).writeFile(input.accessToken,{project:input.project.slug,branch:input.branch,path:`${trackingPath()}/${snapshot.manifest.tracking.sources.legacyCleanup}`,content:upsertLegacyCleanup(snapshot.sources.legacyCleanup,input.record),expectedBranchCommit:input.expectedBranchCommit,message:`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add legacy cleanup"}`})}
 
 function isProjectManifest(value: unknown): value is ProjectManifest {
   if (!value || typeof value !== "object") return false;
