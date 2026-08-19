@@ -22,6 +22,10 @@ export function sessionSecret() {
   return required("ORBIT_SESSION_SECRET");
 }
 
+export function tokenEncryptionSecret() {
+  return required("ORBIT_TOKEN_ENCRYPTION_SECRET");
+}
+
 export function providerCredentials(provider: ProviderId): ProviderCredentials {
   if (provider === "gitlab") {
     return {

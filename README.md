@@ -15,11 +15,10 @@ npm install
 npm run dev
 ```
 
-The first slice includes a public-safe demo fixture and local provider
-connection proof of concept. It can authenticate a GitLab OAuth user or a
-GitHub App user-to-server flow, fetch the authenticated profile, and retain a
-local server-memory session. It does **not** yet list repositories, read
-tracking YAML from a remote branch, or create commits.
+The first slice includes a public-safe demo fixture and provider connection
+proof of concept. It can authenticate a GitLab OAuth user or a GitHub App
+user-to-server flow and fetch the authenticated profile. It does **not** yet
+list repositories, read tracking YAML from a remote branch, or create commits.
 
 ## Local provider setup
 
@@ -62,13 +61,30 @@ After starting ORBIT, open `http://localhost:3000` and choose the provider.
 The page confirms the connected account without exposing the token to browser
 JavaScript. Use **Disconnect** to remove the local session.
 
+## Production session storage
+
+Production requires `DATABASE_URL` and a separate
+`ORBIT_TOKEN_ENCRYPTION_SECRET`. The browser holds only a random, HTTP-only
+session identifier. PostgreSQL holds its expiry, provider identity, and the
+provider tokens encrypted with AES-256-GCM; tracking YAML is never copied to
+the database.
+
+Apply immutable migrations once the database is provisioned:
+
+```bash
+npm run db:migrate
+```
+
+For a Vercel deployment, provision a PostgreSQL integration such as Neon, let
+it set `DATABASE_URL`, then run the migration against that connection before
+adding provider credentials and production callback URLs.
+
 ## Core boundaries
 
 - The browser never receives a provider token through page data or browser
-  JavaScript. The local proof keeps credentials only in server memory and
-  sends the browser an opaque, HTTP-only session identifier. Restarting ORBIT
-  deliberately ends local sessions. Production will move durable sessions and
-  encrypted credentials behind the accepted PostgreSQL boundary.
+  JavaScript. It receives only an opaque, HTTP-only session identifier. In
+  local development without `DATABASE_URL`, sessions intentionally use process
+  memory; production requires PostgreSQL and encrypted credentials.
 - The application will never clone tracked projects to its server.
 - PostgreSQL will hold only session, encrypted delegated-token, and audit data;
   tracking records stay in Git YAML.

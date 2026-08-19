@@ -1,43 +1,28 @@
-import type { ConnectedAccount, ProviderId } from "@/core/domain/provider";
+import type { CreateSession, ProviderSession, SessionStore } from "@/core/ports/session-store";
 import { randomBytes } from "node:crypto";
 
-export const sessionCookieName = "orbit_session";
+export class LocalSessionStore implements SessionStore {
+  private readonly sessions = new Map<string, ProviderSession>();
 
-export type LocalSession = {
-  account: ConnectedAccount;
-  token: {
-    accessToken: string;
-    refreshToken?: string;
-    expiresAt?: string;
-  };
-};
+  async create(input: CreateSession) {
+    const id = randomBytes(32).toString("base64url");
+    this.sessions.set(id, {
+      account: {
+        provider: input.provider,
+        login: input.login,
+        displayName: input.displayName,
+        connectedAt: new Date().toISOString(),
+      },
+      token: input.token,
+    });
+    return id;
+  }
 
-const sessions = new Map<string, LocalSession>();
+  async get(id?: string) {
+    return id ? this.sessions.get(id) ?? null : null;
+  }
 
-export function createSession(input: {
-  provider: ProviderId;
-  login: string;
-  displayName: string | null;
-  token: LocalSession["token"];
-}) {
-  const session: LocalSession = {
-    account: {
-      provider: input.provider,
-      login: input.login,
-      displayName: input.displayName,
-      connectedAt: new Date().toISOString(),
-    },
-    token: input.token,
-  };
-  const id = randomBytes(32).toString("base64url");
-  sessions.set(id, session);
-  return id;
-}
-
-export function getSession(id?: string) {
-  return id ? sessions.get(id) ?? null : null;
-}
-
-export function deleteSession(id?: string) {
-  if (id) sessions.delete(id);
+  async delete(id?: string) {
+    if (id) this.sessions.delete(id);
+  }
 }

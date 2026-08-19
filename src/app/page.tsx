@@ -1,14 +1,15 @@
 import { loadDemoProject } from "@/lib/tracking/load-demo";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { getSession } from "@/adapters/session/local-session";
+import { sessionStore } from "@/adapters/session/session-store";
 import { providerLabel } from "@/core/domain/provider";
 
 type HomeProps = { searchParams: Promise<{ connection?: string }> };
 
 export default async function Home({ searchParams }: HomeProps) {
   const project = await loadDemoProject();
-  const session = getSession((await cookies()).get("orbit_session")?.value);
+  const sessionId = (await cookies()).get("orbit_session")?.value;
+  const session = sessionId ? await sessionStore().get(sessionId) : null;
   const { connection } = await searchParams;
 
   return (

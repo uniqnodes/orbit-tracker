@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isProviderId } from "@/core/domain/provider";
 import { providerFor } from "@/adapters/scm/provider-registry";
-import { createSession, sessionCookieName } from "@/adapters/session/local-session";
+import { sessionCookieName, sessionStore } from "@/adapters/session/session-store";
 import { verify } from "@/adapters/session/encrypted-cookie";
 
 const transactionCookieName = "orbit_oauth_transaction";
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
     const provider = providerFor(value);
     const token = await provider.exchangeAuthorizationCode({ code, codeVerifier: transaction.codeVerifier });
     const account = await provider.getConnectedAccount(token.accessToken);
-    const sessionId = createSession({ provider: value, login: account.login, displayName: account.displayName, token });
+    const sessionId = await sessionStore().create({ provider: value, login: account.login, displayName: account.displayName, token });
     const response = redirect(request, "connected");
     response.cookies.delete(transactionCookieName);
     response.cookies.set({
