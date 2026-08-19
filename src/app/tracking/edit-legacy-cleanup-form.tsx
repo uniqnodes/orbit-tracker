@@ -52,7 +52,7 @@ export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, r
     <summary>{record.id} — {record.title}</summary>
     <form className="tracking-form" onSubmit={save}>
       <Text label="Title" value={title} setValue={setTitle} />
-      <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>{["planned", "active", "removed"].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>{(record.status === "removed" ? ["removed"] : ["planned", "active"]).map((value) => <option key={value}>{value}</option>)}</select></label>
       <Text label="Legacy path" value={legacyPath} setValue={setLegacyPath} />
       <Text label="Reason retained" value={reasonRetained} setValue={setReasonRetained} />
       <Text label="Introduction" value={introductionDescription} setValue={setIntroductionDescription} />

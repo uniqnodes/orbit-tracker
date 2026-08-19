@@ -89,4 +89,31 @@ records: []
       relationships: { developmentLogIds: ["2026-08-19-rollout"] },
     });
   });
+
+  it("does not allow a legacy record to be marked removed without removal evidence", () => {
+    expect(() => upsertLegacyCleanup(`
+schemaVersion: 1
+recordType: legacy-cleanup
+nextSequence: 2
+records:
+  - id: LEG-001
+    title: Temporary compatibility path
+    status: active
+    legacyPath: adapter/compatibility.ts
+    reasonRetained: A staged rollout still consumes the older contract.
+    introduction: { description: Compatibility path introduced during rollout. }
+    owner: { plannedImprovementIds: [], description: PI-001 owns the transition. }
+    removal: { condition: Remove it when the staged rollout is complete., evidence: null }
+    scope: { services: [], components: [], areas: [] }
+    references: []
+    removedAt: null
+    relationships: { developmentLogIds: [] }
+`, {
+      id: "LEG-001", title: "Temporary compatibility path", status: "removed",
+      legacyPath: "adapter/compatibility.ts", reasonRetained: "A staged rollout still consumes the older contract.",
+      introductionDescription: "Compatibility path introduced during rollout.", removalCondition: "Remove it when the staged rollout is complete.",
+      ownerDescription: "PI-001 owns the transition.", plannedImprovementIds: [],
+      scope: { services: [], components: [], areas: [] }, developmentLogIds: [],
+    })).toThrow("dedicated evidence workflow");
+  });
 });
