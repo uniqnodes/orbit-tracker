@@ -7,7 +7,8 @@ import { developmentLogDocumentSchema, legacyCleanupDocumentSchema, plannedImpro
 
 const requiredSources = ["plannedImprovements", "developmentLog", "proposedImprovements", "legacyCleanup"] as const;
 
-type ProjectManifest = { project: { name: string; shortName: string }; tracking: { sources: Record<(typeof requiredSources)[number], string> } };
+type CatalogItem = { id: string; name: string; group?: string };
+export type ProjectManifest = { project: { name: string; shortName: string }; tracking: { sources: Record<(typeof requiredSources)[number], string> }; services: CatalogItem[]; components: CatalogItem[]; areas: CatalogItem[] };
 
 export type TrackingSnapshot = { project: AllowedProject; branch: BranchReference; manifest: ProjectManifest; sources: Record<string, string> };
 
@@ -59,11 +60,15 @@ export async function savePlannedImprovementStatus(input: {
 
 function isProjectManifest(value: unknown): value is ProjectManifest {
   if (!value || typeof value !== "object") return false;
-  const manifest = value as { project?: { name?: unknown; shortName?: unknown }; tracking?: { sources?: Record<string, unknown> } };
+  const manifest = value as { project?: { name?: unknown; shortName?: unknown }; tracking?: { sources?: Record<string, unknown> }; services?: unknown; components?: unknown; areas?: unknown };
   if (typeof manifest.project?.name !== "string" || typeof manifest.project.shortName !== "string" || !manifest.tracking?.sources) return false;
-  return requiredSources.every((name) => isSafeSourceFile(manifest.tracking?.sources?.[name]));
+  return requiredSources.every((name) => isSafeSourceFile(manifest.tracking?.sources?.[name])) && [manifest.services, manifest.components, manifest.areas].every(isCatalog);
 }
 
 function isSafeSourceFile(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && !value.includes("/") && !value.includes("\\") && value !== "." && value !== "..";
+}
+
+function isCatalog(value: unknown): value is CatalogItem[] {
+  return Array.isArray(value) && value.every((item) => Boolean(item) && typeof item === "object" && typeof (item as CatalogItem).id === "string" && typeof (item as CatalogItem).name === "string");
 }
