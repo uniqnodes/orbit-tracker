@@ -1,6 +1,5 @@
 import { loadDemoProject } from "@/lib/tracking/load-demo";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { sessionStore } from "@/adapters/session/session-store";
 import { providerLabel } from "@/core/domain/provider";
 
@@ -37,8 +36,11 @@ export default async function Home({ searchParams }: HomeProps) {
           </>
         ) : (
           <div className="actions">
-            <Link className="button" href="/api/connect/gitlab">Connect GitLab</Link>
-            <Link className="button secondary" href="/api/connect/github">Connect GitHub</Link>
+            {/* OAuth routes leave this origin; client-side RSC navigation is inappropriate. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className="button" href="/api/connect/gitlab">Connect GitLab</a>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className="button secondary" href="/api/connect/github">Connect GitHub</a>
           </div>
         )}
       </section>

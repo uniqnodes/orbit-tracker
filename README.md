@@ -23,8 +23,17 @@ list repositories, read tracking YAML from a remote branch, or create commits.
 ## Local provider setup
 
 Copy `.env.example` to `.env.local`, set a long random
-`ORBIT_SESSION_SECRET`, then add only credentials for test applications you
-own. `.env.local` is ignored by Git.
+`ORBIT_SESSION_SECRET` and `ORBIT_TOKEN_ENCRYPTION_SECRET`, then add only
+credentials for test applications you own. Provider connections require a
+durable PostgreSQL session store even locally; start the included local service
+and apply its migration before starting Next.js:
+
+```bash
+docker compose -f compose.local.yml up -d
+DATABASE_URL=postgresql://orbit:orbit-local-only@127.0.0.1:54329/orbit npm run db:migrate
+```
+
+Set that same `DATABASE_URL` in `.env.local`. `.env.local` is ignored by Git.
 
 ### GitLab OAuth
 
@@ -59,7 +68,10 @@ installed where the target repository lives.
 
 After starting ORBIT, open `http://localhost:3000` and choose the provider.
 The page confirms the connected account without exposing the token to browser
-JavaScript. Use **Disconnect** to remove the local session.
+JavaScript. Use **Disconnect** to remove the local session. The local compose
+database holds only encrypted provider tokens and opaque sessions; remove it
+with `docker compose -f compose.local.yml down -v` when its local test data is
+no longer needed.
 
 ## Production session storage
 
@@ -183,9 +195,9 @@ docker run -d --name orbit-tracker --restart unless-stopped \
 ## Core boundaries
 
 - The browser never receives a provider token through page data or browser
-  JavaScript. It receives only an opaque, HTTP-only session identifier. In
-  local development without `DATABASE_URL`, sessions intentionally use process
-  memory; production requires PostgreSQL and encrypted credentials.
+  JavaScript. It receives only an opaque, HTTP-only session identifier.
+  Provider connections always require PostgreSQL and encrypted credentials;
+  process-memory sessions are not used by the web application.
 - The application will never clone tracked projects to its server.
 - PostgreSQL will hold only session, encrypted delegated-token, and audit data;
   tracking records stay in Git YAML.
