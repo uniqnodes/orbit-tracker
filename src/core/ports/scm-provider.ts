@@ -25,6 +25,10 @@ export type WriteFileInput = {
   message: string;
 };
 
+export type WriteFilesInput = Omit<WriteFileInput, "path" | "content"> & {
+  files: Array<{ path: string; content: string }>;
+};
+
 export interface ScmProvider {
   readonly id: ProviderId;
   beginAuthorization(): ProviderAuthorization;
@@ -36,4 +40,5 @@ export interface ScmProvider {
   listBranches(accessToken: string, project: string): Promise<BranchReference[]>;
   readFile(accessToken: string, project: string, branch: string, path: string): Promise<string>;
   writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference>;
+  writeFiles(accessToken: string, input: WriteFilesInput): Promise<BranchReference>;
 }

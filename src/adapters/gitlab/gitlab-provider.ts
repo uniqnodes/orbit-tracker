@@ -1,7 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import { callbackUrl, gitlabBaseUrl, providerCredentials } from "@/adapters/config/provider-config";
 import { BranchChangedError, type ConnectedAccount } from "@/core/domain/provider";
-import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput } from "@/core/ports/scm-provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput, WriteFilesInput } from "@/core/ports/scm-provider";
 
 function base64url(value: Buffer) {
   return value.toString("base64url");
@@ -79,19 +79,23 @@ export class GitLabProvider implements ScmProvider {
   }
 
   async writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference> {
+    return this.writeFiles(accessToken, { ...input, files: [{ path: input.path, content: input.content }] });
+  }
+
+  async writeFiles(accessToken: string, input: WriteFilesInput): Promise<BranchReference> {
     const branch = await this.branch(accessToken, input.project, input.branch);
     if (branch.commit !== input.expectedBranchCommit) throw new BranchChangedError();
     if (!branch.canPush) throw new Error("GitLab does not allow this user to write to the selected branch.");
-    const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(input.project)}/repository/files/${encodeURIComponent(input.path)}`, {
-      method: "PUT",
+    const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(input.project)}/repository/commits`, {
+      method: "POST",
       headers: { ...this.headers(accessToken), "content-type": "application/json" },
-      body: JSON.stringify({ branch: input.branch, content: input.content, commit_message: input.message, last_commit_id: input.expectedBranchCommit }),
+      body: JSON.stringify({ branch: input.branch, commit_message: input.message, actions: input.files.map((file) => ({ action: "update", file_path: file.path, content: file.content, last_commit_id: input.expectedBranchCommit })) }),
       cache: "no-store",
     });
     if (response.status === 400 || response.status === 409) throw new BranchChangedError();
-    const payload = (await response.json()) as { commit_id?: string };
-    if (!response.ok || !payload.commit_id) throw new Error("GitLab could not create the tracking update commit.");
-    return { name: input.branch, commit: payload.commit_id, canPush: true };
+    const payload = (await response.json()) as { id?: string };
+    if (!response.ok || !payload.id) throw new Error("GitLab could not create the tracking update commit.");
+    return { name: input.branch, commit: payload.id, canPush: true };
   }
 
   private async branch(accessToken: string, project: string, branchName: string): Promise<BranchReference> {

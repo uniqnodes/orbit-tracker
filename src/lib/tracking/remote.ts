@@ -6,6 +6,7 @@ import { updatePlannedImprovementStatus, upsertPlannedImprovement } from "./plan
 import { upsertDevelopmentLog } from "./development-log";
 import { upsertProposal } from "./proposal";
 import { upsertLegacyCleanup } from "./legacy-cleanup";
+import { synchronizeRelationships } from "./relationship-sync";
 import { developmentLogDocumentSchema, legacyCleanupDocumentSchema, plannedImprovementDocumentSchema, proposedImprovementDocumentSchema } from "./schema";
 
 const requiredSources = ["plannedImprovements", "developmentLog", "proposedImprovements", "legacyCleanup"] as const;
@@ -68,20 +69,23 @@ export async function savePlannedImprovement(input: {
   const { snapshot } = await loadTrackingSnapshot({ project: input.project, accessToken: input.accessToken, branchName: input.branch });
   if (snapshot.branch.commit !== input.expectedBranchCommit) throw new Error("The selected branch changed after it was loaded. Reload before saving.");
   const content = upsertPlannedImprovement(snapshot.sources.plannedImprovements, input.record);
-  return providerFor(input.project.provider).writeFile(input.accessToken, {
-    project: input.project.slug, branch: input.branch, path: `${trackingPath()}/${snapshot.manifest.tracking.sources.plannedImprovements}`,
-    content, expectedBranchCommit: input.expectedBranchCommit, message: `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add planned improvement"}`,
-  });
+  return writeRelationshipUpdate(snapshot, input.accessToken, input.branch, input.expectedBranchCommit, synchronizeRelationships(snapshot, "plannedImprovements", content, input.record.id), `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add planned improvement"}`);
 }
 
 export async function saveDevelopmentLog(input: { project: AllowedProject; accessToken: string; branch: string; expectedBranchCommit: string; record: Omit<Parameters<typeof upsertDevelopmentLog>[1], "branch"> }) {
   const { snapshot } = await loadTrackingSnapshot({ project: input.project, accessToken: input.accessToken, branchName: input.branch });
   if (snapshot.branch.commit !== input.expectedBranchCommit) throw new Error("The selected branch changed after it was loaded. Reload before saving.");
   const content = upsertDevelopmentLog(snapshot.sources.developmentLog, { ...input.record, branch: input.branch });
-  return providerFor(input.project.provider).writeFile(input.accessToken, { project: input.project.slug, branch: input.branch, path: `${trackingPath()}/${snapshot.manifest.tracking.sources.developmentLog}`, content, expectedBranchCommit: input.expectedBranchCommit, message: `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add development log"}` });
+  return writeRelationshipUpdate(snapshot, input.accessToken, input.branch, input.expectedBranchCommit, synchronizeRelationships(snapshot, "developmentLog", content, input.record.id), `docs(tracking): ${input.record.id ? `update ${input.record.id}` : "add development log"}`);
 }
-export async function saveProposal(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertProposal>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");return providerFor(input.project.provider).writeFile(input.accessToken,{project:input.project.slug,branch:input.branch,path:`${trackingPath()}/${snapshot.manifest.tracking.sources.proposedImprovements}`,content:upsertProposal(snapshot.sources.proposedImprovements,input.record),expectedBranchCommit:input.expectedBranchCommit,message:`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add proposal"}`})}
-export async function saveLegacyCleanup(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertLegacyCleanup>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");return providerFor(input.project.provider).writeFile(input.accessToken,{project:input.project.slug,branch:input.branch,path:`${trackingPath()}/${snapshot.manifest.tracking.sources.legacyCleanup}`,content:upsertLegacyCleanup(snapshot.sources.legacyCleanup,input.record),expectedBranchCommit:input.expectedBranchCommit,message:`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add legacy cleanup"}`})}
+export async function saveProposal(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertProposal>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");const content=upsertProposal(snapshot.sources.proposedImprovements,input.record);return writeRelationshipUpdate(snapshot,input.accessToken,input.branch,input.expectedBranchCommit,synchronizeRelationships(snapshot,"proposedImprovements",content,input.record.id),`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add proposal"}`)}
+export async function saveLegacyCleanup(input:{project:AllowedProject;accessToken:string;branch:string;expectedBranchCommit:string;record:Parameters<typeof upsertLegacyCleanup>[1]}){const {snapshot}=await loadTrackingSnapshot({project:input.project,accessToken:input.accessToken,branchName:input.branch});if(snapshot.branch.commit!==input.expectedBranchCommit)throw new Error("The selected branch changed after it was loaded. Reload before saving.");const content=upsertLegacyCleanup(snapshot.sources.legacyCleanup,input.record);return writeRelationshipUpdate(snapshot,input.accessToken,input.branch,input.expectedBranchCommit,synchronizeRelationships(snapshot,"legacyCleanup",content,input.record.id),`docs(tracking): ${input.record.id?`update ${input.record.id}`:"add legacy cleanup"}`)}
+
+async function writeRelationshipUpdate(snapshot: TrackingSnapshot, accessToken: string, branch: string, expectedBranchCommit: string, sources: Record<(typeof requiredSources)[number], string>, message: string) {
+  const files = requiredSources.filter((name) => sources[name] !== snapshot.sources[name]).map((name) => ({ path: `${trackingPath()}/${snapshot.manifest.tracking.sources[name]}`, content: sources[name] }));
+  if (files.length === 0) throw new Error("The tracking update did not change any source.");
+  return providerFor(snapshot.project.provider).writeFiles(accessToken, { project: snapshot.project.slug, branch, expectedBranchCommit, message, files });
+}
 
 function isProjectManifest(value: unknown): value is ProjectManifest {
   if (!value || typeof value !== "object") return false;

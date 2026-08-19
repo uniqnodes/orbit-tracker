@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { callbackUrl, providerCredentials } from "@/adapters/config/provider-config";
 import { BranchChangedError, type ConnectedAccount } from "@/core/domain/provider";
-import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput } from "@/core/ports/scm-provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider, WriteFileInput, WriteFilesInput } from "@/core/ports/scm-provider";
 
 const githubUrl = "https://github.com";
 const githubApiUrl = "https://api.github.com";
@@ -72,21 +72,45 @@ export class GitHubProvider implements ScmProvider {
   }
 
   async writeFile(accessToken: string, input: WriteFileInput): Promise<BranchReference> {
+    return this.writeFiles(accessToken, { ...input, files: [{ path: input.path, content: input.content }] });
+  }
+
+  async writeFiles(accessToken: string, input: WriteFilesInput): Promise<BranchReference> {
     const branch = await this.branch(accessToken, input.project, input.branch);
     if (branch.commit !== input.expectedBranchCommit) throw new BranchChangedError();
-    const currentFile = await fetch(`${githubApiUrl}/repos/${input.project}/contents/${input.path}?ref=${encodeURIComponent(input.branch)}`, { headers: this.headers(accessToken), cache: "no-store" });
-    const filePayload = (await currentFile.json()) as { sha?: string };
-    if (!currentFile.ok || !filePayload.sha) throw new Error(`GitHub file could not be prepared for update: ${input.path}`);
-    const response = await fetch(`${githubApiUrl}/repos/${input.project}/contents/${input.path}`, {
-      method: "PUT",
+    const commitResponse = await fetch(`${githubApiUrl}/repos/${input.project}/git/commits/${branch.commit}`, { headers: this.headers(accessToken), cache: "no-store" });
+    const commitPayload = (await commitResponse.json()) as { tree?: { sha?: string } };
+    if (!commitResponse.ok || !commitPayload.tree?.sha) throw new Error("GitHub branch tree could not be prepared for update.");
+    const blobs = await Promise.all(input.files.map(async (file) => {
+      const response = await fetch(`${githubApiUrl}/repos/${input.project}/git/blobs`, {
+        method: "POST", headers: { ...this.headers(accessToken), "content-type": "application/json" },
+        body: JSON.stringify({ content: file.content, encoding: "utf-8" }), cache: "no-store",
+      });
+      const payload = (await response.json()) as { sha?: string };
+      if (!response.ok || !payload.sha) throw new Error(`GitHub could not prepare ${file.path}.`);
+      return { path: file.path, mode: "100644", type: "blob", sha: payload.sha };
+    }));
+    const treeResponse = await fetch(`${githubApiUrl}/repos/${input.project}/git/trees`, {
+      method: "POST",
       headers: { ...this.headers(accessToken), "content-type": "application/json" },
-      body: JSON.stringify({ message: input.message, content: Buffer.from(input.content).toString("base64"), branch: input.branch, sha: filePayload.sha }),
+      body: JSON.stringify({ base_tree: commitPayload.tree.sha, tree: blobs }),
       cache: "no-store",
     });
-    if (response.status === 409) throw new BranchChangedError();
-    const payload = (await response.json()) as { commit?: { sha?: string } };
-    if (!response.ok || !payload.commit?.sha) throw new Error("GitHub could not create the tracking update commit.");
-    return { name: input.branch, commit: payload.commit.sha };
+    const treePayload = (await treeResponse.json()) as { sha?: string };
+    if (!treeResponse.ok || !treePayload.sha) throw new Error("GitHub could not prepare the tracking tree.");
+    const newCommitResponse = await fetch(`${githubApiUrl}/repos/${input.project}/git/commits`, {
+      method: "POST", headers: { ...this.headers(accessToken), "content-type": "application/json" },
+      body: JSON.stringify({ message: input.message, tree: treePayload.sha, parents: [branch.commit] }), cache: "no-store",
+    });
+    const newCommitPayload = (await newCommitResponse.json()) as { sha?: string };
+    if (!newCommitResponse.ok || !newCommitPayload.sha) throw new Error("GitHub could not create the tracking update commit.");
+    const updateResponse = await fetch(`${githubApiUrl}/repos/${input.project}/git/refs/heads/${encodeURIComponent(input.branch)}`, {
+      method: "PATCH", headers: { ...this.headers(accessToken), "content-type": "application/json" },
+      body: JSON.stringify({ sha: newCommitPayload.sha, force: false }), cache: "no-store",
+    });
+    if (updateResponse.status === 409 || updateResponse.status === 422) throw new BranchChangedError();
+    if (!updateResponse.ok) throw new Error("GitHub could not update the tracking branch.");
+    return { name: input.branch, commit: newCommitPayload.sha };
   }
 
   private async branch(accessToken: string, project: string, branchName: string): Promise<BranchReference> {
