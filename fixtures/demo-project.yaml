@@ -1,0 +1,19 @@
+schemaVersion: 1
+kind: orbit-project
+project:
+  id: demo-platform
+  name: Demo Platform
+  shortName: DEMO
+tracking:
+  contractVersion: 1
+  sources:
+    plannedImprovements: planned-improvements.yaml
+    developmentLog: development-log.yaml
+    proposedImprovements: proposed-improvements.yaml
+    legacyCleanup: legacy-cleanup.yaml
+services:
+  - { id: catalog, name: Catalog, group: core }
+components:
+  - { id: object-storage, name: Object Storage, group: infrastructure }
+areas:
+  - { id: platform-wide, name: Platform-wide }
