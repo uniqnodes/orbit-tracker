@@ -86,24 +86,98 @@ environment contract (`ORBIT_APP_URL`, both provider credentials,
 `ORBIT_SESSION_SECRET`, `ORBIT_TOKEN_ENCRYPTION_SECRET`, and `DATABASE_URL`) at
 runtime; do not copy an environment file into the image.
 
-Build and start the web server:
+### Server installation
+
+The target server needs Docker, outbound HTTPS access to the selected
+PostgreSQL service, GitHub, and GitLab, plus a reverse proxy that terminates
+TLS. ORBIT itself does not clone or mount tracked repositories.
+
+Clone a tagged release or a reviewed commit, then create a root-readable secret
+file outside the repository. The example uses `/opt/orbit-tracker`; choose a
+different deployment path if required by the host.
+
+```bash
+git clone https://github.com/uniqnodes/orbit-tracker.git /opt/orbit-tracker
+cd /opt/orbit-tracker
+git checkout <release-tag-or-reviewed-commit>
+mkdir -p /opt/orbit-tracker/secure
+chmod 700 /opt/orbit-tracker/secure
+```
+
+Create `/opt/orbit-tracker/secure/orbit.env` with one unquoted `NAME=value`
+entry per line. Generate the two application secrets independently and retain
+them for future container replacements; changing either one invalidates active
+sessions or encrypted provider tokens.
+
+```text
+ORBIT_APP_URL=https://orbit.example.com
+ORBIT_SESSION_SECRET=<long-random-secret>
+ORBIT_TOKEN_ENCRYPTION_SECRET=<different-long-random-secret>
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require
+
+ORBIT_GITLAB_BASE_URL=https://gitlab.com
+ORBIT_GITLAB_CLIENT_ID=<production-client-id>
+ORBIT_GITLAB_CLIENT_SECRET=<production-client-secret>
+ORBIT_GITHUB_APP_CLIENT_ID=<production-client-id>
+ORBIT_GITHUB_APP_CLIENT_SECRET=<production-client-secret>
+
+ORBIT_ALLOWED_PROJECTS=gitlab:<namespace>/<project>,github:<owner>/<repository>
+ORBIT_TRACKING_PATH=docs/project-tracking
+```
+
+Lock down the file before using it:
+
+```bash
+chmod 600 /opt/orbit-tracker/secure/orbit.env
+```
+
+Register these exact callback URLs in the production provider applications
+before opening ORBIT to users:
+
+```text
+https://orbit.example.com/api/connect/gitlab/callback
+https://orbit.example.com/api/connect/github/callback
+```
+
+Build the image, apply the immutable migration, then start the web container.
+Binding the application to loopback leaves the public HTTPS entry point under
+the reverse proxy's control.
 
 ```bash
 docker build -t orbit-tracker .
-docker run --rm -p 3000:3000 --env-file /secure/orbit.env orbit-tracker
+docker run --rm --env-file /opt/orbit-tracker/secure/orbit.env orbit-tracker node db/migrate.mjs
+docker run -d --name orbit-tracker --restart unless-stopped \
+  --env-file /opt/orbit-tracker/secure/orbit.env \
+  -p 127.0.0.1:3000:3000 orbit-tracker
 ```
 
-`/secure/orbit.env` must use Docker environment-file format: store values as
-unquoted `NAME=value` lines. Do not pass the quoted dotenv file produced by
-`vercel env pull` directly to Docker; Docker treats those quotes as literal
-characters. Each deployment needs its own `ORBIT_APP_URL` and matching provider
-callback registrations.
+Configure the reverse proxy to forward HTTPS traffic for `orbit.example.com`
+to `http://127.0.0.1:3000`. Preserve the `Host` and `X-Forwarded-Proto: https`
+headers. Verify the deployment through the public HTTPS URL, then complete one
+GitLab and one GitHub connection test.
 
-Run immutable database migrations as a separate, one-off step against the same
-`DATABASE_URL`, before replacing a running web container:
+`orbit.env` must use Docker environment-file format: do not pass the quoted
+dotenv file produced by `vercel env pull` directly to Docker; Docker treats
+those quotes as literal characters. Each deployment needs its own
+`ORBIT_APP_URL` and matching provider callback registrations.
+
+### Updating a server deployment
+
+Keep the secret file unchanged, unless a deliberate credential rotation is
+being performed. Build the new image, run migrations, then replace the named
+container. Check the public URL and provider connection flow after the restart.
 
 ```bash
-docker run --rm --env-file /secure/orbit.env orbit-tracker node db/migrate.mjs
+cd /opt/orbit-tracker
+git fetch --tags origin
+git checkout <next-release-tag-or-reviewed-commit>
+docker build -t orbit-tracker .
+docker run --rm --env-file /opt/orbit-tracker/secure/orbit.env orbit-tracker node db/migrate.mjs
+docker stop orbit-tracker
+docker rm orbit-tracker
+docker run -d --name orbit-tracker --restart unless-stopped \
+  --env-file /opt/orbit-tracker/secure/orbit.env \
+  -p 127.0.0.1:3000:3000 orbit-tracker
 ```
 
 ## Core boundaries
