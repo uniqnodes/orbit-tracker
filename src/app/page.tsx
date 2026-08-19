@@ -1,5 +1,6 @@
 import { loadDemoProject } from "@/lib/tracking/load-demo";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { sessionStore } from "@/adapters/session/session-store";
 import { providerLabel } from "@/core/domain/provider";
 
@@ -30,6 +31,7 @@ export default async function Home({ searchParams }: HomeProps) {
               Connected to <strong>{providerLabel(session.account.provider)}</strong> as <strong>{session.account.login}</strong>
               {session.account.displayName ? ` (${session.account.displayName})` : ""}.
             </p>
+            <p><Link className="button" href="/tracking">Load allowed tracking project</Link></p>
             <form action="/api/disconnect" method="post">
               <button type="submit" className="secondary">Disconnect</button>
             </form>

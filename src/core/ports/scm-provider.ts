@@ -14,6 +14,8 @@ export type ProviderToken = {
   expiresAt?: string;
 };
 
+export type BranchReference = { name: string; commit: string };
+
 export interface ScmProvider {
   readonly id: ProviderId;
   beginAuthorization(): ProviderAuthorization;
@@ -22,4 +24,6 @@ export interface ScmProvider {
     codeVerifier?: string;
   }): Promise<ProviderToken>;
   getConnectedAccount(accessToken: string): Promise<ConnectedAccount>;
+  listBranches(accessToken: string, project: string): Promise<BranchReference[]>;
+  readFile(accessToken: string, project: string, branch: string, path: string): Promise<string>;
 }

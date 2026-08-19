@@ -1,5 +1,7 @@
 import type { ProviderId } from "@/core/domain/provider";
 
+export type AllowedProject = { provider: ProviderId; slug: string };
+
 type ProviderCredentials = {
   clientId: string;
   clientSecret: string;
@@ -46,4 +48,18 @@ export function gitlabBaseUrl() {
 
 export function callbackUrl(provider: ProviderId) {
   return `${appUrl()}/api/connect/${provider}/callback`;
+}
+
+export function allowedProjects(): AllowedProject[] {
+  return required("ORBIT_ALLOWED_PROJECTS").split(",").map((entry) => {
+    const [provider, slug, extra] = entry.trim().split(":");
+    if (extra || (provider !== "github" && provider !== "gitlab") || !slug?.includes("/")) {
+      throw new Error("ORBIT_ALLOWED_PROJECTS contains an invalid project entry.");
+    }
+    return { provider, slug };
+  });
+}
+
+export function trackingPath() {
+  return process.env.ORBIT_TRACKING_PATH?.trim() || "docs/project-tracking";
 }

@@ -1,7 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import { callbackUrl, gitlabBaseUrl, providerCredentials } from "@/adapters/config/provider-config";
 import type { ConnectedAccount } from "@/core/domain/provider";
-import type { ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
 
 function base64url(value: Buffer) {
   return value.toString("base64url");
@@ -61,5 +61,24 @@ export class GitLabProvider implements ScmProvider {
     const payload = (await response.json()) as { username?: string; name?: string };
     if (!response.ok || !payload.username) throw new Error("GitLab profile could not be loaded.");
     return { provider: this.id, login: payload.username, displayName: payload.name ?? null, connectedAt: new Date().toISOString() };
+  }
+
+  async listBranches(accessToken: string, project: string): Promise<BranchReference[]> {
+    const response = await fetch(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(project)}/repository/branches?per_page=100`, { headers: this.headers(accessToken), cache: "no-store" });
+    const payload = (await response.json()) as Array<{ name?: string; commit?: { id?: string } }>;
+    if (!response.ok) throw new Error("GitLab branches could not be loaded.");
+    return payload.flatMap((branch) => branch.name && branch.commit?.id ? [{ name: branch.name, commit: branch.commit.id }] : []);
+  }
+
+  async readFile(accessToken: string, project: string, branch: string, path: string) {
+    const url = new URL(`${gitlabBaseUrl()}/api/v4/projects/${encodeURIComponent(project)}/repository/files/${encodeURIComponent(path)}/raw`);
+    url.searchParams.set("ref", branch);
+    const response = await fetch(url, { headers: this.headers(accessToken), cache: "no-store" });
+    if (!response.ok) throw new Error(`GitLab file could not be loaded: ${path}`);
+    return response.text();
+  }
+
+  private headers(accessToken: string) {
+    return { authorization: `Bearer ${accessToken}` };
   }
 }

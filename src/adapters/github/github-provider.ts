@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { callbackUrl, providerCredentials } from "@/adapters/config/provider-config";
 import type { ConnectedAccount } from "@/core/domain/provider";
-import type { ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
+import type { BranchReference, ProviderAuthorization, ProviderToken, ScmProvider } from "@/core/ports/scm-provider";
 
 const githubUrl = "https://github.com";
 const githubApiUrl = "https://api.github.com";
@@ -55,5 +55,23 @@ export class GitHubProvider implements ScmProvider {
     const payload = (await response.json()) as { login?: string; name?: string | null };
     if (!response.ok || !payload.login) throw new Error("GitHub profile could not be loaded.");
     return { provider: this.id, login: payload.login, displayName: payload.name ?? null, connectedAt: new Date().toISOString() };
+  }
+
+  async listBranches(accessToken: string, project: string): Promise<BranchReference[]> {
+    const response = await fetch(`${githubApiUrl}/repos/${project}/branches?per_page=100`, { headers: this.headers(accessToken), cache: "no-store" });
+    const payload = (await response.json()) as Array<{ name?: string; commit?: { sha?: string } }>;
+    if (!response.ok) throw new Error("GitHub branches could not be loaded.");
+    return payload.flatMap((branch) => branch.name && branch.commit?.sha ? [{ name: branch.name, commit: branch.commit.sha }] : []);
+  }
+
+  async readFile(accessToken: string, project: string, branch: string, path: string) {
+    const response = await fetch(`${githubApiUrl}/repos/${project}/contents/${path}?ref=${encodeURIComponent(branch)}`, { headers: this.headers(accessToken), cache: "no-store" });
+    const payload = (await response.json()) as { content?: string; encoding?: string };
+    if (!response.ok || payload.encoding !== "base64" || !payload.content) throw new Error(`GitHub file could not be loaded: ${path}`);
+    return Buffer.from(payload.content, "base64").toString("utf8");
+  }
+
+  private headers(accessToken: string) {
+    return { accept: "application/vnd.github+json", authorization: `Bearer ${accessToken}`, "x-github-api-version": "2022-11-28" };
   }
 }
