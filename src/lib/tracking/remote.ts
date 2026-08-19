@@ -3,6 +3,7 @@ import { trackingPath, type AllowedProject } from "@/adapters/config/provider-co
 import { providerFor } from "@/adapters/scm/provider-registry";
 import type { BranchReference } from "@/core/ports/scm-provider";
 import { updatePlannedImprovementStatus } from "./planned-improvement-status";
+import { developmentLogDocumentSchema, legacyCleanupDocumentSchema, plannedImprovementDocumentSchema, proposedImprovementDocumentSchema } from "./schema";
 
 const requiredSources = ["plannedImprovements", "developmentLog", "proposedImprovements", "legacyCleanup"] as const;
 
@@ -21,7 +22,16 @@ export async function loadTrackingSnapshot(input: { project: AllowedProject; acc
   if (!isProjectManifest(manifest)) throw new Error("project.yaml does not satisfy the ORBIT project contract.");
   const sourceEntries = Object.entries(manifest.tracking.sources);
   const loaded = await Promise.all(sourceEntries.map(async ([name, file]) => [name, await provider.readFile(input.accessToken, input.project.slug, branch.name, `${basePath}/${file}`)] as const));
-  return { branches, snapshot: { project: input.project, branch, manifest, sources: Object.fromEntries(loaded) } };
+  const sources = Object.fromEntries(loaded) as Record<(typeof requiredSources)[number], string>;
+  validateTrackingSources(sources);
+  return { branches, snapshot: { project: input.project, branch, manifest, sources } };
+}
+
+export function validateTrackingSources(sources: Record<(typeof requiredSources)[number], string>) {
+  plannedImprovementDocumentSchema.parse(parse(sources.plannedImprovements));
+  developmentLogDocumentSchema.parse(parse(sources.developmentLog));
+  proposedImprovementDocumentSchema.parse(parse(sources.proposedImprovements));
+  legacyCleanupDocumentSchema.parse(parse(sources.legacyCleanup));
 }
 
 export async function savePlannedImprovementStatus(input: {
