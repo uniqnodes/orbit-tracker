@@ -20,7 +20,15 @@ export function NewPlannedImprovementForm({ project, branch, expectedBranchCommi
     if (!response.ok) { setMessage(result.error ?? "Tracking update failed."); return; }
     window.location.reload();
   }
+  function invent() {
+    const stamp = Math.random().toString(36).slice(2, 7);
+    setTitle(`Synthetic wobble ${stamp}`); setSummary(`A deliberately meaningless tracking summary ${stamp}.`); setGoal(`Keep the imaginary ${stamp} path suitably wobblish.`);
+    setPriority(["low", "medium", "high"][Math.floor(Math.random() * 3)] as typeof priority); setStatus("backlog");
+    setCategories([pick(categories)]); setServices(one(catalog.services)); setComponents(one(catalog.components)); setAreas(one(catalog.areas));
+    setProposalIds(one(relationships.proposals)); setDevelopmentLogIds(one(relationships.developmentLogs)); setLegacyCleanupIds(one(relationships.legacyCleanup));
+  }
   return <form onSubmit={submit} className="tracking-form">
+    <button type="button" className="secondary" onClick={invent}>Yeni uydur</button>
     <label>Title<input required value={title} onChange={(event) => setTitle(event.target.value)} /></label>
     <label>Summary<textarea required value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
     <label>Goal<textarea required value={goal} onChange={(event) => setGoal(event.target.value)} /></label>
@@ -36,6 +44,9 @@ export function NewPlannedImprovementForm({ project, branch, expectedBranchCommi
     <button type="submit" disabled={saving}>{saving ? "Saving…" : "Create planned improvement"}</button>{message ? <p role="status">{message}</p> : null}
   </form>;
 }
+
+function pick<T>(items: T[]) { return items[Math.floor(Math.random() * items.length)]; }
+function one(items: Option[]) { return items.length ? [pick(items).id] : []; }
 
 function Choice({ label, options, value, onChange }: { label: string; options: Option[]; value: string[]; onChange: (value: string[]) => void }) {
   return <label>{label}<select multiple value={value} onChange={(event) => onChange(selected(event))}>{options.map((option) => <option key={option.id} value={option.id}>{option.id} — {option.title ?? option.name}</option>)}</select></label>;
