@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { legacyCleanupDocumentSchema } from "@/lib/tracking/schema";
+import { MultiSelectField } from "./multi-select-field";
 
 type LegacyCleanup = typeof legacyCleanupDocumentSchema._output.records[number];
 type Option = { id: string; name?: string; title?: string };
@@ -12,9 +14,11 @@ type Props = {
   record: LegacyCleanup;
   catalog: { services: Option[]; components: Option[]; areas: Option[] };
   relationships: { plannedImprovements: Option[]; developmentLogs: Option[] };
+  embedded?: boolean;
 };
 
-export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, record, catalog, relationships }: Props) {
+export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, record, catalog, relationships, embedded = false }: Props) {
+  const router = useRouter();
   const [title, setTitle] = useState(record.title);
   const [status, setStatus] = useState(record.status);
   const [legacyPath, setLegacyPath] = useState(record.legacyPath);
@@ -45,12 +49,11 @@ export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, r
     });
     const result = await response.json();
     if (!response.ok) return setMessage(result.error ?? "Save failed.");
-    window.location.reload();
+    setMessage("Saved. Refreshing the record list…");
+    router.refresh();
   }
 
-  return <details>
-    <summary>{record.id} — {record.title}</summary>
-    <form className="tracking-form" onSubmit={save}>
+  const form = <><form className="tracking-form" onSubmit={save}>
       <Text label="Title" value={title} setValue={setTitle} />
       <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>{(record.status === "removed" ? ["removed"] : ["planned", "active"]).map((value) => <option key={value}>{value}</option>)}</select></label>
       <Text label="Legacy path" value={legacyPath} setValue={setLegacyPath} />
@@ -65,15 +68,15 @@ export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, r
       <Choices label="Related development logs" options={relationships.developmentLogs} value={developmentLogIds} setValue={setDevelopmentLogIds} />
       <button>Save legacy cleanup</button>
       {message && <p role="status">{message}</p>}
-    </form>
+  </form>
     {record.status !== "removed" && <CloseLegacyCleanupForm
       project={project}
       branch={branch}
       expectedBranchCommit={expectedBranchCommit}
       record={record}
       developmentLogs={relationships.developmentLogs}
-    />}
-  </details>;
+  />}</>;
+  return embedded ? form : <details><summary>{record.id} — {record.title}</summary>{form}</details>;
 }
 
 function CloseLegacyCleanupForm({ project, branch, expectedBranchCommit, record, developmentLogs }: {
@@ -83,6 +86,7 @@ function CloseLegacyCleanupForm({ project, branch, expectedBranchCommit, record,
   record: LegacyCleanup;
   developmentLogs: Option[];
 }) {
+  const router = useRouter();
   const [evidence, setEvidence] = useState(record.removal.evidence ?? "");
   const [developmentLogIds, setDevelopmentLogIds] = useState(record.relationships.developmentLogIds);
   const [message, setMessage] = useState<string>();
@@ -96,7 +100,8 @@ function CloseLegacyCleanupForm({ project, branch, expectedBranchCommit, record,
     });
     const result = await response.json();
     if (!response.ok) return setMessage(result.error ?? "Closure failed.");
-    window.location.reload();
+    setMessage("Closed. Refreshing the record list…");
+    router.refresh();
   }
 
   return <form className="tracking-form" onSubmit={close}>
@@ -113,8 +118,4 @@ function Text({ label, value, setValue }: { label: string; value: string; setVal
   return <label>{label}<textarea required value={value} onChange={(event) => setValue(event.target.value)} /></label>;
 }
 
-function Choices({ label, options, value, setValue }: { label: string; options: Option[]; value: string[]; setValue: (value: string[]) => void }) {
-  return <label>{label}<select multiple value={value} onChange={(event) => setValue(Array.from(event.target.selectedOptions, (option) => option.value))}>
-    {options.map((option) => <option key={option.id} value={option.id}>{option.id} — {option.name ?? option.title}</option>)}
-  </select></label>;
-}
+function Choices({ label, options, value, setValue }: { label: string; options: Option[]; value: string[]; setValue: (value: string[]) => void }) { return <MultiSelectField label={label} options={options} value={value} onChange={setValue} />; }

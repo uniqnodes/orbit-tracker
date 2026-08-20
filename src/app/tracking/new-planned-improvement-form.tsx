@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { MultiSelectField } from "./multi-select-field";
 
 type Option = { id: string; title?: string; name?: string };
 type Props = { project: string; branch: string; expectedBranchCommit: string; catalog: { services: Option[]; components: Option[]; areas: Option[] }; relationships: { proposals: Option[]; developmentLogs: Option[]; legacyCleanup: Option[] } };
 const categories = ["architecture", "data_integrity", "database_safety", "developer_experience", "documentation", "operational", "reliability", "security", "testing"];
 
-function selected(event: React.ChangeEvent<HTMLSelectElement>) { return Array.from(event.target.selectedOptions, (option) => option.value); }
-
 export function NewPlannedImprovementForm({ project, branch, expectedBranchCommit, catalog, relationships }: Props) {
+  const router = useRouter();
   const [title, setTitle] = useState(""); const [summary, setSummary] = useState(""); const [goal, setGoal] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium"); const [status, setStatus] = useState<"backlog" | "in_progress" | "blocked" | "completed">("backlog");
   const [categoriesValue, setCategories] = useState<string[]>(["developer_experience"]); const [services, setServices] = useState<string[]>([]); const [components, setComponents] = useState<string[]>([]); const [areas, setAreas] = useState<string[]>([]);
@@ -18,7 +19,8 @@ export function NewPlannedImprovementForm({ project, branch, expectedBranchCommi
     const response = await fetch("/api/tracking/planned-improvements", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ project, branch, expectedBranchCommit, record: { title, summary, goal, priority, status, categories: categoriesValue, scope: { services, components, areas }, relationships: { proposalIds, developmentLogIds, legacyCleanupIds } } }) });
     const result = await response.json() as { error?: string }; setSaving(false);
     if (!response.ok) { setMessage(result.error ?? "Tracking update failed."); return; }
-    window.location.reload();
+    setMessage("Saved. Refreshing the record list…");
+    router.refresh();
   }
   function invent() {
     const stamp = Math.random().toString(36).slice(2, 7);
@@ -49,5 +51,5 @@ function pick<T>(items: T[]) { return items[Math.floor(Math.random() * items.len
 function one(items: Option[]) { return items.length ? [pick(items).id] : []; }
 
 function Choice({ label, options, value, onChange }: { label: string; options: Option[]; value: string[]; onChange: (value: string[]) => void }) {
-  return <label>{label}<select multiple value={value} onChange={(event) => onChange(selected(event))}>{options.map((option) => <option key={option.id} value={option.id}>{option.id} — {option.title ?? option.name}</option>)}</select></label>;
+  return <MultiSelectField label={label} options={options} value={value} onChange={onChange} />;
 }

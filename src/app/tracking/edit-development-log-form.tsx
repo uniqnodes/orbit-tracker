@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { developmentLogDocumentSchema } from "@/lib/tracking/schema";
+import { MultiSelectField } from "./multi-select-field";
 
 type DevelopmentLog = typeof developmentLogDocumentSchema._output.records[number];
 type Option = { id: string; name?: string; title?: string };
@@ -12,9 +14,11 @@ type Props = {
   record: DevelopmentLog;
   catalog: { services: Option[]; components: Option[]; areas: Option[] };
   relationships: { plannedImprovements: Option[]; proposals: Option[]; legacyCleanup: Option[] };
+  embedded?: boolean;
 };
 
-export function EditDevelopmentLogForm({ project, branch, expectedBranchCommit, record, catalog, relationships }: Props) {
+export function EditDevelopmentLogForm({ project, branch, expectedBranchCommit, record, catalog, relationships, embedded = false }: Props) {
+  const router = useRouter();
   const [title, setTitle] = useState(record.title);
   const [details, setDetails] = useState(record.details);
   const [categories, setCategories] = useState(record.categories);
@@ -46,12 +50,11 @@ export function EditDevelopmentLogForm({ project, branch, expectedBranchCommit, 
     });
     const result = await response.json();
     if (!response.ok) return setMessage(result.error ?? "Save failed.");
-    window.location.reload();
+    setMessage("Saved. Refreshing the record list…");
+    router.refresh();
   }
 
-  return <details>
-    <summary>{record.id} — {record.title}</summary>
-    <form className="tracking-form" onSubmit={save}>
+  const form = <form className="tracking-form" onSubmit={save}>
       <Text label="Title" value={title} setValue={setTitle} />
       <Choices label="Categories" options={categoriesForForm} value={categories} setValue={(values) => setCategories(values as typeof categories)} />
       <Text label="Reason type" value={reasonType} setValue={setReasonType} />
@@ -66,8 +69,8 @@ export function EditDevelopmentLogForm({ project, branch, expectedBranchCommit, 
       <Choices label="Legacy cleanup" options={relationships.legacyCleanup} value={legacyCleanupIds} setValue={setLegacyCleanupIds} />
       <button>Save development log</button>
       {message && <p role="status">{message}</p>}
-    </form>
-  </details>;
+  </form>;
+  return embedded ? form : <details><summary>{record.id} — {record.title}</summary>{form}</details>;
 }
 
 const categoriesForForm = ["architecture", "bug_fix", "database_safety", "developer_experience", "documentation", "operational", "reliability", "security", "system_improvement"].map((id) => ({ id, name: id }));
@@ -76,8 +79,4 @@ function Text({ label, value, setValue }: { label: string; value: string; setVal
   return <label>{label}<textarea required value={value} onChange={(event) => setValue(event.target.value)} /></label>;
 }
 
-function Choices({ label, options, value, setValue }: { label: string; options: Option[]; value: string[]; setValue: (value: string[]) => void }) {
-  return <label>{label}<select multiple value={value} onChange={(event) => setValue(Array.from(event.target.selectedOptions, (option) => option.value))}>
-    {options.map((option) => <option key={option.id} value={option.id}>{option.id} — {option.name ?? option.title}</option>)}
-  </select></label>;
-}
+function Choices({ label, options, value, setValue }: { label: string; options: Option[]; value: string[]; setValue: (value: string[]) => void }) { return <MultiSelectField label={label} options={options} value={value} onChange={setValue} />; }

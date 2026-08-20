@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Status = "backlog" | "in_progress" | "blocked" | "completed";
 
@@ -14,6 +15,7 @@ type Props = {
 const statuses: Status[] = ["backlog", "in_progress", "blocked", "completed"];
 
 export function PlannedStatusForm({ project, branch, expectedBranchCommit, record }: Props) {
+  const router = useRouter();
   const [status, setStatus] = useState(record.status);
   const [message, setMessage] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -32,8 +34,8 @@ export function PlannedStatusForm({ project, branch, expectedBranchCommit, recor
       setMessage(result.error ?? "Tracking update failed.");
       return;
     }
-    setMessage(`Saved in commit ${result.branch?.commit.slice(0, 12) ?? "created"}. Reloading…`);
-    window.location.reload();
+    setMessage(`Saved in commit ${result.branch?.commit.slice(0, 12) ?? "created"}. Refreshing the record list…`);
+    router.refresh();
   }
 
   return <li>

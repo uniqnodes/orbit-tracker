@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { MultiSelectField } from "./multi-select-field";
 
 type Option = { id: string; name?: string; title?: string };
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
 };
 
 export function NewLegacyCleanupForm({ project, branch, expectedBranchCommit, catalog, relationships }: Props) {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [legacyPath, setLegacyPath] = useState("");
   const [reasonRetained, setReasonRetained] = useState("");
@@ -41,7 +44,8 @@ export function NewLegacyCleanupForm({ project, branch, expectedBranchCommit, ca
     });
     const result = await response.json();
     if (!response.ok) return setMessage(result.error ?? "Save failed.");
-    window.location.reload();
+    setMessage("Saved. Refreshing the record list…");
+    router.refresh();
   }
 
   return <form className="tracking-form" onSubmit={save}>
@@ -66,7 +70,5 @@ function Text({ label, value, setValue }: { label: string; value: string; setVal
 }
 
 function Choices({ label, options, value, setValue }: { label: string; options: Option[]; value: string[]; setValue: (value: string[]) => void }) {
-  return <label>{label}<select multiple value={value} onChange={(event) => setValue(Array.from(event.target.selectedOptions, (option) => option.value))}>
-    {options.map((option) => <option key={option.id} value={option.id}>{option.id} — {option.name ?? option.title}</option>)}
-  </select></label>;
+  return <MultiSelectField label={label} options={options} value={value} onChange={setValue} />;
 }
