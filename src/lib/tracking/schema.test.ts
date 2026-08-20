@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validatePlannedImprovements } from "./load-demo";
 import { updatePlannedImprovementStatus } from "./planned-improvement-status";
-import { upsertLegacyCleanup } from "./legacy-cleanup";
+import { closeLegacyCleanup, upsertLegacyCleanup } from "./legacy-cleanup";
 import { legacyCleanupDocumentSchema } from "./schema";
 import { parse } from "yaml";
 import { readFileSync } from "node:fs";
@@ -118,6 +118,33 @@ records:
       ownerDescription: "PI-001 owns the transition.", plannedImprovementIds: [],
       scope: { services: [], components: [], areas: [] }, developmentLogIds: [],
     })).toThrow("dedicated evidence workflow");
+  });
+
+  it("closes legacy cleanup with evidence and synchronizes its development-log relationship", () => {
+    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/docs/project-tracking";
+    const sources = {
+      plannedImprovements: readFileSync(`${basePath}/planned-improvements.yaml`, "utf8"),
+      developmentLog: readFileSync(`${basePath}/development-log.yaml`, "utf8").replace("      legacyCleanupIds:\n        - LEG-001\n", "      legacyCleanupIds: []\n"),
+      proposedImprovements: readFileSync(`${basePath}/proposed-improvements.yaml`, "utf8"),
+      legacyCleanup: readFileSync(`${basePath}/legacy-cleanup.yaml`, "utf8"),
+    };
+    const content = closeLegacyCleanup(sources.legacyCleanup, {
+      id: "LEG-001",
+      evidence: "GitHub and GitLab provider commits prove the scoped write flow.",
+      developmentLogIds: ["2026-08-19-orbit-tracking-fixture"],
+      removedAt: "2026-08-20T12:00:00+03:00",
+    });
+    const updated = synchronizeRelationships({ sources } as never, "legacyCleanup", content, "LEG-001");
+    const legacy = legacyCleanupDocumentSchema.parse(parse(updated.legacyCleanup)).records[0];
+
+    expect(legacy).toMatchObject({
+      status: "removed",
+      removedAt: "2026-08-20T12:00:00+03:00",
+      removal: { evidence: "GitHub and GitLab provider commits prove the scoped write flow." },
+    });
+    expect(updated.developmentLog).not.toBe(sources.developmentLog);
+    expect(updated.plannedImprovements).toBe(sources.plannedImprovements);
+    expect(updated.proposedImprovements).toBe(sources.proposedImprovements);
   });
 
   it("writes only the two relationship endpoints", () => {

@@ -66,7 +66,47 @@ export function EditLegacyCleanupForm({ project, branch, expectedBranchCommit, r
       <button>Save legacy cleanup</button>
       {message && <p role="status">{message}</p>}
     </form>
+    {record.status !== "removed" && <CloseLegacyCleanupForm
+      project={project}
+      branch={branch}
+      expectedBranchCommit={expectedBranchCommit}
+      record={record}
+      developmentLogs={relationships.developmentLogs}
+    />}
   </details>;
+}
+
+function CloseLegacyCleanupForm({ project, branch, expectedBranchCommit, record, developmentLogs }: {
+  project: string;
+  branch: string;
+  expectedBranchCommit: string;
+  record: LegacyCleanup;
+  developmentLogs: Option[];
+}) {
+  const [evidence, setEvidence] = useState(record.removal.evidence ?? "");
+  const [developmentLogIds, setDevelopmentLogIds] = useState(record.relationships.developmentLogIds);
+  const [message, setMessage] = useState<string>();
+
+  async function close(event: React.FormEvent) {
+    event.preventDefault();
+    const response = await fetch("/api/tracking/legacy-cleanup/close", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project, branch, expectedBranchCommit, id: record.id, evidence, developmentLogIds }),
+    });
+    const result = await response.json();
+    if (!response.ok) return setMessage(result.error ?? "Closure failed.");
+    window.location.reload();
+  }
+
+  return <form className="tracking-form" onSubmit={close}>
+    <h3>Close legacy cleanup</h3>
+    <p>Save any ordinary edits first. Closing is permanent: the record remains, but cannot be reopened.</p>
+    <Text label="Removal evidence" value={evidence} setValue={setEvidence} />
+    <Choices label="Development logs proving removal" options={developmentLogs} value={developmentLogIds} setValue={setDevelopmentLogIds} />
+    <button>Close legacy cleanup</button>
+    {message && <p role="status">{message}</p>}
+  </form>;
 }
 
 function Text({ label, value, setValue }: { label: string; value: string; setValue: (value: string) => void }) {
