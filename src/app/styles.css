@@ -105,7 +105,7 @@ details[open] > summary::after { transform: translateY(-35%) rotate(225deg); }
 .orbit-table-wrap th { border-bottom: 1px solid #dce4ef; padding: 8px 10px; color: #79879b; font-size: .65rem; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
 .orbit-table-wrap td { border-bottom: 1px solid #edf1f5; padding: 0 10px; color: #536277; }
 .orbit-table-wrap tr.selected { background: #f1f6ff; box-shadow: inset 3px 0 #2563eb; }
-.orbit-row-button { display: grid; width: 100%; gap: 2px; border: 0; padding: 11px 0; background: transparent; color: #26354c; text-align: left; }
+.orbit-row-button { display: grid; width: 100%; align-items: start; justify-content: start; gap: 2px; border: 0; padding: 11px 0; background: transparent; color: #26354c; text-align: left; }
 .orbit-row-button strong { color: #1d4ed8; font-size: .75rem; }
 .orbit-row-button span { font-weight: 700; }
 .orbit-status { display: inline-block; border-radius: 999px; padding: 3px 7px; background: #edf1f5; color: #59677c; font-size: .68rem; font-weight: 800; text-transform: capitalize; }
