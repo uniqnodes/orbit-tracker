@@ -10,6 +10,7 @@ export function synchronizeRelationships(snapshot: TrackingSnapshot, changed: Re
   const development = developmentLogDocumentSchema.parse(parse(sources.developmentLog));
   const proposals = proposedImprovementDocumentSchema.parse(parse(sources.proposedImprovements));
   const legacy = legacyCleanupDocumentSchema.parse(parse(sources.legacyCleanup));
+  const before = { planned: structuredClone(planned), development: structuredClone(development), proposals: structuredClone(proposals), legacy: structuredClone(legacy) };
   const current = changed === "plannedImprovements" ? (changedRecordId ? planned.records.find((record) => record.id === changedRecordId) : planned.records.at(-1)) : changed === "developmentLog" ? (changedRecordId ? development.records.find((record) => record.id === changedRecordId) : development.records.at(-1)) : changed === "proposedImprovements" ? (changedRecordId ? proposals.records.find((record) => record.id === changedRecordId) : proposals.records.at(-1)) : (changedRecordId ? legacy.records.find((record) => record.id === changedRecordId) : legacy.records.at(-1));
   if (!current) throw new Error("The saved tracking record could not be loaded.");
 
@@ -34,15 +35,15 @@ export function synchronizeRelationships(snapshot: TrackingSnapshot, changed: Re
   }
 
   return {
-    plannedImprovements: serializedIfChanged(sources.plannedImprovements, planned),
-    developmentLog: serializedIfChanged(sources.developmentLog, development),
-    proposedImprovements: serializedIfChanged(sources.proposedImprovements, proposals),
-    legacyCleanup: serializedIfChanged(sources.legacyCleanup, legacy),
+    plannedImprovements: serializedIfChanged(sources.plannedImprovements, before.planned, planned),
+    developmentLog: serializedIfChanged(sources.developmentLog, before.development, development),
+    proposedImprovements: serializedIfChanged(sources.proposedImprovements, before.proposals, proposals),
+    legacyCleanup: serializedIfChanged(sources.legacyCleanup, before.legacy, legacy),
   };
 }
 
-function serializedIfChanged(source: string, document: unknown) {
-  return JSON.stringify(parse(source)) === JSON.stringify(document) ? source : stringify(document);
+function serializedIfChanged(source: string, before: unknown, document: unknown) {
+  return JSON.stringify(before) === JSON.stringify(document) ? source : stringify(document);
 }
 
 function synchronize<T extends { id: string }>(records: T[], sourceId: string, selectedIds: string[], target: (record: T) => string[]) {
