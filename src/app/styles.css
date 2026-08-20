@@ -73,7 +73,7 @@ details[open] > summary::after { transform: translateY(-35%) rotate(225deg); }
 .orbit-sidebar { padding: 24px 14px; background: #101827; color: #d4dcea; }
 .orbit-brand { display: block; padding: 0 12px 28px; color: #fff; font-size: .88rem; font-weight: 900; letter-spacing: .14em; text-decoration: none; }
 .orbit-nav-label { margin: 0 12px 9px; color: #7b899e; font-size: .67rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.orbit-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; margin: 3px 0; border: 0; border-radius: 8px; padding: 10px 12px; background: transparent; color: #c0cad8; text-align: left; }
+.orbit-nav-item { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; margin: 3px 0; border: 0; border-radius: 8px; padding: 10px 12px; background: transparent; color: #c0cad8; text-align: left; }
 .orbit-nav-item:hover { background: #1d293d; }
 .orbit-nav-item b { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 6px; background: #1c293d; color: #9baac0; font-size: .65rem; }
 .orbit-nav-item.active { background: #1d4ed8; color: #fff; }
