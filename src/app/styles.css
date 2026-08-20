@@ -144,19 +144,15 @@ details[open] > summary::after { transform: translateY(-35%) rotate(225deg); }
 .relation-picker-head span { margin-top: 3px; color: #748196; font-size: .75rem; }
 .relation-picker-head > button { min-height: auto; border: 0; padding: 0 4px; background: transparent; color: #6d7b90; font-size: 1.25rem; }
 .relation-picker > input { width: calc(100% - 32px); margin: 14px 16px; border: 1px solid #d7e0eb; border-radius: 7px; padding: 9px 10px; font: inherit; }
-.relation-picker-columns { display: grid; height: 360px; min-height: 0; grid-template-columns: 1.15fr .85fr; flex: 1; border-top: 1px solid #edf1f5; }
-.relation-picker-columns > div { min-width: 0; overflow: auto; }
-.relation-picker-columns > div + div { border-left: 1px solid #e7ebf1; background: #f8fafc; }
-.relation-picker-columns header { display: flex; justify-content: space-between; border-bottom: 1px solid #e7ebf1; padding: 9px 12px; color: #64738a; font-size: .68rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
-.relation-picker-columns header button { min-height: auto; border: 0; padding: 0; background: transparent; color: #1d4ed8; font-size: .68rem; font-weight: 800; text-transform: none; }
-.picker-options > label, .picker-options.selected > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #edf1f5; padding: 10px 12px; color: #536277; font-size: .75rem; }
+.relation-picker-list { height: 360px; min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid #edf1f5; }
+.relation-picker-list header { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #e7ebf1; padding: 9px 12px; background: #fff; color: #64738a; font-size: .68rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.relation-picker-list header small { margin-right: auto; }
+.relation-picker-list header button { min-height: auto; border: 0; padding: 0; background: transparent; color: #1d4ed8; font-size: .68rem; font-weight: 800; text-transform: none; }
+.picker-options > label { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #edf1f5; padding: 10px 12px; color: #536277; font-size: .75rem; }
+.picker-options > label.is-selected { background: #f1f6ff; }
 .relation-picker .picker-options input { width: 16px; height: 16px; flex: 0 0 auto; margin: 2px 0 0; }
-.record-label { min-width: 0; }
-.record-label b, .record-label small { display: block; overflow-wrap: anywhere; }
+.record-label { display: flex; min-width: 0; align-items: baseline; gap: 7px; }
+.record-label b, .record-label small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-label b { color: #2252a6; font-size: .72rem; }
 .record-label small { color: #536277; font-size: .75rem; }
-.picker-options.selected > div { justify-content: space-between; }
-.picker-options.selected button { min-height: auto; border: 0; padding: 0; background: transparent; color: #65758b; font-size: 1rem; }
-.picker-options.selected p { padding: 10px 12px; font-size: .75rem; }
 .relation-picker footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e7ebf1; padding: 12px 16px; color: #65758b; font-size: .75rem; }
-@media (max-width: 600px) { .relation-picker-columns { grid-template-columns: 1fr; max-height: 400px; } .relation-picker-columns > div + div { border-top: 1px solid #e7ebf1; border-left: 0; } }
