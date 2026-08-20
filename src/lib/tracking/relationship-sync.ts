@@ -34,9 +34,15 @@ export function synchronizeRelationships(snapshot: TrackingSnapshot, changed: Re
   }
 
   return {
-    plannedImprovements: stringify(planned), developmentLog: stringify(development),
-    proposedImprovements: stringify(proposals), legacyCleanup: stringify(legacy),
+    plannedImprovements: serializedIfChanged(sources.plannedImprovements, planned),
+    developmentLog: serializedIfChanged(sources.developmentLog, development),
+    proposedImprovements: serializedIfChanged(sources.proposedImprovements, proposals),
+    legacyCleanup: serializedIfChanged(sources.legacyCleanup, legacy),
   };
+}
+
+function serializedIfChanged(source: string, document: unknown) {
+  return JSON.stringify(parse(source)) === JSON.stringify(document) ? source : stringify(document);
 }
 
 function synchronize<T extends { id: string }>(records: T[], sourceId: string, selectedIds: string[], target: (record: T) => string[]) {

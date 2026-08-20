@@ -4,6 +4,9 @@ import { updatePlannedImprovementStatus } from "./planned-improvement-status";
 import { upsertLegacyCleanup } from "./legacy-cleanup";
 import { legacyCleanupDocumentSchema } from "./schema";
 import { parse } from "yaml";
+import { readFileSync } from "node:fs";
+import { upsertPlannedImprovement } from "./planned-improvement-status";
+import { synchronizeRelationships } from "./relationship-sync";
 
 describe("planned-improvement contract", () => {
   it("accepts a minimal version-one document", () => {
@@ -115,5 +118,27 @@ records:
       ownerDescription: "PI-001 owns the transition.", plannedImprovementIds: [],
       scope: { services: [], components: [], areas: [] }, developmentLogIds: [],
     })).toThrow("dedicated evidence workflow");
+  });
+
+  it("writes only the two relationship endpoints", () => {
+    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/docs/project-tracking";
+    const sources = {
+      plannedImprovements: readFileSync(`${basePath}/planned-improvements.yaml`, "utf8"),
+      developmentLog: readFileSync(`${basePath}/development-log.yaml`, "utf8"),
+      proposedImprovements: readFileSync(`${basePath}/proposed-improvements.yaml`, "utf8"),
+      legacyCleanup: readFileSync(`${basePath}/legacy-cleanup.yaml`, "utf8"),
+    };
+    const content = upsertPlannedImprovement(sources.plannedImprovements, {
+      title: "Relationship source preservation", status: "backlog", priority: "medium",
+      categories: ["documentation"], summary: "Verify source preservation.", goal: "Change only relationship endpoints.",
+      scope: { services: [], components: [], areas: [] },
+      relationships: { proposalIds: ["PROP-001"], developmentLogIds: [], legacyCleanupIds: [] },
+    });
+    const updated = synchronizeRelationships({ sources } as never, "plannedImprovements", content);
+
+    expect(updated.plannedImprovements).not.toBe(sources.plannedImprovements);
+    expect(updated.proposedImprovements).not.toBe(sources.proposedImprovements);
+    expect(updated.developmentLog).toBe(sources.developmentLog);
+    expect(updated.legacyCleanup).toBe(sources.legacyCleanup);
   });
 });
