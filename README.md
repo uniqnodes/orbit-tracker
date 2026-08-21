@@ -135,7 +135,7 @@ ORBIT_GITHUB_APP_CLIENT_ID=<production-client-id>
 ORBIT_GITHUB_APP_CLIENT_SECRET=<production-client-secret>
 
 ORBIT_ALLOWED_PROJECTS=gitlab:<namespace>/<project>,github:<owner>/<repository>
-ORBIT_TRACKING_PATH=docs/project-tracking
+ORBIT_TRACKING_PATH=.local.docs/project-tracking
 ```
 
 Lock down the file before using it:

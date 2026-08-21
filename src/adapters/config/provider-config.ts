@@ -61,5 +61,5 @@ export function allowedProjects(): AllowedProject[] {
 }
 
 export function trackingPath() {
-  return process.env.ORBIT_TRACKING_PATH?.trim() || "docs/project-tracking";
+  return process.env.ORBIT_TRACKING_PATH?.trim() || ".local.docs/project-tracking";
 }

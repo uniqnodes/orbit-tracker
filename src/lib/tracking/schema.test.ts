@@ -3,7 +3,7 @@ import { validatePlannedImprovements } from "./load-demo";
 import { updatePlannedImprovementStatus } from "./planned-improvement-status";
 import { closeLegacyCleanup, upsertLegacyCleanup } from "./legacy-cleanup";
 import { legacyCleanupDocumentSchema } from "./schema";
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 import { readFileSync } from "node:fs";
 import { upsertPlannedImprovement } from "./planned-improvement-status";
 import { synchronizeRelationships } from "./relationship-sync";
@@ -121,12 +121,12 @@ records:
   });
 
   it("closes legacy cleanup with evidence and synchronizes its development-log relationship", () => {
-    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/docs/project-tracking";
+    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/.local.docs/project-tracking";
     const sources = {
       plannedImprovements: readFileSync(`${basePath}/planned-improvements.yaml`, "utf8"),
       developmentLog: readFileSync(`${basePath}/development-log.yaml`, "utf8").replace("      legacyCleanupIds:\n        - LEG-001\n", "      legacyCleanupIds: []\n"),
       proposedImprovements: readFileSync(`${basePath}/proposed-improvements.yaml`, "utf8"),
-      legacyCleanup: readFileSync(`${basePath}/legacy-cleanup.yaml`, "utf8"),
+      legacyCleanup: reopenLegacyFixture(readFileSync(`${basePath}/legacy-cleanup.yaml`, "utf8")),
     };
     const content = closeLegacyCleanup(sources.legacyCleanup, {
       id: "LEG-001",
@@ -148,7 +148,7 @@ records:
   });
 
   it("writes only the two relationship endpoints", () => {
-    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/docs/project-tracking";
+    const basePath = "/Users/aa/Desktop/projects/orbit-tracking-test/.local.docs/project-tracking";
     const sources = {
       plannedImprovements: readFileSync(`${basePath}/planned-improvements.yaml`, "utf8"),
       developmentLog: readFileSync(`${basePath}/development-log.yaml`, "utf8"),
@@ -169,3 +169,13 @@ records:
     expect(updated.legacyCleanup).toBe(sources.legacyCleanup);
   });
 });
+
+function reopenLegacyFixture(source: string) {
+  const document = parse(source) as { records: Array<{ id: string; status: string; removal: { evidence: string | null }; removedAt: string | null }> };
+  const record = document.records.find((candidate) => candidate.id === "LEG-001");
+  if (!record) throw new Error("Fixture must contain LEG-001.");
+  record.status = "active";
+  record.removal.evidence = null;
+  record.removedAt = null;
+  return stringify(document);
+}
